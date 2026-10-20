@@ -7,9 +7,12 @@ import com.nsclient.module.ModuleCategory;
 import com.nsclient.module.ModuleManager;
 import com.nsclient.util.NSColors;
 import com.nsclient.util.RenderUtil;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.CharInput;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 
@@ -22,6 +25,9 @@ import java.util.Set;
  * The main "NS Client" ClickGUI. Pure vanilla DrawContext rendering (fills +
  * text), so it stays Sodium-compatible and needs no custom shaders. Rounded
  * corners are approximated with 1px corner notches (see RenderUtil).
+ *
+ * Input handling uses the Click/KeyInput/CharInput record types introduced
+ * around Minecraft 1.21.6 and present in 1.21.11's Element/Screen interfaces.
  */
 public class ClickGUIScreen extends Screen {
 
@@ -118,7 +124,7 @@ public class ClickGUIScreen extends Screen {
         int y = LIST_Y + 22 - listScroll;
         for (Module module : modules) {
             if (y + ROW_HEIGHT < LIST_Y + 20) {
-                y += rowTotalHeight(module);
+                y += ROW_HEIGHT;
                 continue;
             }
             if (y > LIST_Y + panelHeight) break;
@@ -136,10 +142,6 @@ public class ClickGUIScreen extends Screen {
         }
     }
 
-    private int rowTotalHeight(Module module) {
-        return ROW_HEIGHT;
-    }
-
     private void renderSettingsPanel(DrawContext context, int mouseX, int mouseY) {
         int panelHeight = height - SETTINGS_Y - 20;
         RenderUtil.drawRoundedRect(context, SETTINGS_X, SETTINGS_Y, SETTINGS_WIDTH, panelHeight, NSColors.BG_PANEL);
@@ -155,7 +157,6 @@ public class ClickGUIScreen extends Screen {
 
         int y = SETTINGS_Y + 36;
 
-        // Keybind row
         String keyLabel = awaitingKeybind == selectedModule ? "Press a key..." : describeKey(selectedModule.getKeyCode());
         context.drawText(textRenderer, "Keybind: " + keyLabel, SETTINGS_X + 10, y, NSColors.TEXT_PRIMARY, false);
         y += 16;
@@ -239,13 +240,15 @@ public class ClickGUIScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (searchBox.mouseClicked(mouseX, mouseY, button)) return true;
+    public boolean mouseClicked(Click click, boolean doubled) {
+        int mouseX = (int) click.x();
+        int mouseY = (int) click.y();
 
-        // Sidebar
+        if (searchBox.mouseClicked(click, doubled)) return true;
+
         int y = SIDEBAR_Y + 4;
         for (ModuleCategory cat : ModuleCategory.values()) {
-            if (isHovered((int) mouseX, (int) mouseY, SIDEBAR_X + 4, y, SIDEBAR_WIDTH - 8, ROW_HEIGHT - 2)) {
+            if (isHovered(mouseX, mouseY, SIDEBAR_X + 4, y, SIDEBAR_WIDTH - 8, ROW_HEIGHT - 2)) {
                 selectedCategory = cat;
                 listScroll = 0;
                 return true;
@@ -253,17 +256,16 @@ public class ClickGUIScreen extends Screen {
             y += ROW_HEIGHT;
         }
 
-        // Module list
         List<Module> modules = currentModules();
         int panelHeight = height - LIST_Y - 20;
         int ly = LIST_Y + 22 - listScroll;
         for (Module module : modules) {
             if (ly >= LIST_Y + 20 && ly <= LIST_Y + panelHeight) {
-                if (isHovered((int) mouseX, (int) mouseY, LIST_X + LIST_WIDTH - 36, ly + 4, 28, 14)) {
+                if (isHovered(mouseX, mouseY, LIST_X + LIST_WIDTH - 36, ly + 4, 28, 14)) {
                     module.toggle();
                     return true;
                 }
-                if (isHovered((int) mouseX, (int) mouseY, LIST_X + 6, ly, LIST_WIDTH - 12, ROW_HEIGHT - 2)) {
+                if (isHovered(mouseX, mouseY, LIST_X + 6, ly, LIST_WIDTH - 12, ROW_HEIGHT - 2)) {
                     selectedModule = module;
                     return true;
                 }
@@ -271,12 +273,11 @@ public class ClickGUIScreen extends Screen {
             ly += ROW_HEIGHT;
         }
 
-        // Settings panel interaction
         if (selectedModule != null) {
             handleSettingsClick(mouseX, mouseY);
         }
 
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     private void handleSettingsClick(double mouseX, double mouseY) {
@@ -284,7 +285,6 @@ public class ClickGUIScreen extends Screen {
         int y = SETTINGS_Y + 36;
         int width = SETTINGS_WIDTH - 20;
 
-        // Keybind row
         if (isHovered((int) mouseX, (int) mouseY, x, y, width, 12)) {
             awaitingKeybind = selectedModule;
             return;
@@ -360,23 +360,23 @@ public class ClickGUIScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(Click click, double offsetX, double offsetY) {
         if (draggingFloatSlider != null) {
-            updateFloatSlider(mouseX);
+            updateFloatSlider(click.x());
             return true;
         }
         if (draggingIntSlider != null) {
-            updateIntSlider(mouseX);
+            updateIntSlider(click.x());
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, offsetX, offsetY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(Click click) {
         draggingFloatSlider = null;
         draggingIntSlider = null;
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(click);
     }
 
     @Override
@@ -389,22 +389,22 @@ public class ClickGUIScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
         if (awaitingKeybind != null) {
-            awaitingKeybind.setKeyCode(keyCode);
+            awaitingKeybind.setKeyCode(input.key());
             awaitingKeybind = null;
             return true;
         }
-        if (searchBox.isFocused() && searchBox.keyPressed(keyCode, scanCode, modifiers)) {
+        if (searchBox.isFocused() && searchBox.keyPressed(input)) {
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     @Override
-    public boolean charTyped(char chr, int modifiers) {
-        if (searchBox.isFocused() && searchBox.charTyped(chr, modifiers)) return true;
-        return super.charTyped(chr, modifiers);
+    public boolean charTyped(CharInput input) {
+        if (searchBox.isFocused() && searchBox.charTyped(input)) return true;
+        return super.charTyped(input);
     }
 
     @Override
@@ -417,4 +417,4 @@ public class ClickGUIScreen extends Screen {
         ConfigManager.save();
         super.close();
     }
-                                                    }
+}
