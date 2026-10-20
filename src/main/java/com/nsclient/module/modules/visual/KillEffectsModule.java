@@ -39,7 +39,7 @@ public class KillEffectsModule extends Module {
             double vx = Math.cos(angle) * Math.cos(pitch) * speed.getValue();
             double vy = Math.sin(pitch) * speed.getValue();
             double vz = Math.sin(angle) * Math.cos(pitch) * speed.getValue();
-            world.addParticle(effect, true, false, x, y, z, vx, vy, vz);
+            world.addParticle(effect, true, x, y, z, vx, vy, vz);
         }
     }
 }
