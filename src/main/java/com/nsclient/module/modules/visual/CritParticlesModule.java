@@ -40,7 +40,7 @@ public class CritParticlesModule extends Module {
             double vx = Math.cos(angle) * speed.getValue();
             double vy = Math.random() * speed.getValue() * 1.5;
             double vz = Math.sin(angle) * speed.getValue();
-            world.addParticle(effect, true, false, x + ox, y, z + oz, vx, vy, vz);
+            world.addParticle(effect, true, x + ox, y, z + oz, vx, vy, vz);
         }
     }
 }
