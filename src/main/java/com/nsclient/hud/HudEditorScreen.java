@@ -5,16 +5,14 @@ import com.nsclient.module.HudModule;
 import com.nsclient.module.ModuleManager;
 import com.nsclient.util.NSColors;
 import com.nsclient.util.RenderUtil;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
-import java.util.List;
-
 /**
  * Lets the player drag every enabled HUD element to a new position, scale it
- * with the mouse wheel (or a pinch-equivalent wheel event on touch
- * front-ends), and reset it with a double right-click. Large hit boxes
+ * with the mouse wheel, and reset it with a right-click. Large hit boxes
  * (min 28px) keep this usable on touch screens (Android launchers).
  */
 public class HudEditorScreen extends Screen {
@@ -75,38 +73,40 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
         HudModule target = findAt(mouseX, mouseY);
         if (target != null) {
             selected = target;
-            if (button == 0) {
+            if (click.button() == 0) {
                 dragging = target;
                 dragOffsetX = (float) mouseX - target.getX();
                 dragOffsetY = (float) mouseY - target.getY();
-            } else if (button == 1) {
+            } else if (click.button() == 1) {
                 target.setPosition(6, 6);
                 target.setScale(1.0f);
             }
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(Click click, double offsetX, double offsetY) {
         if (dragging != null) {
-            float newX = Math.max(0, (float) mouseX - dragOffsetX);
-            float newY = Math.max(0, (float) mouseY - dragOffsetY);
+            float newX = Math.max(0, (float) click.x() - dragOffsetX);
+            float newY = Math.max(0, (float) click.y() - dragOffsetY);
             dragging.setPosition(newX, newY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, offsetX, offsetY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(Click click) {
         dragging = null;
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(click);
     }
 
     @Override
