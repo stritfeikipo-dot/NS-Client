@@ -5,10 +5,9 @@ import com.nsclient.module.Module;
 import com.nsclient.module.ModuleCategory;
 import com.nsclient.util.NSColors;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.particle.DustParticleEffect;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
-import org.joml.Vector3f;
+import net.minecraft.particle.DustParticleEffect;
 
 public class HitParticlesModule extends Module {
 
@@ -27,12 +26,7 @@ public class HitParticlesModule extends Module {
         ClientWorld world = MinecraftClient.getInstance().world;
         if (world == null) return;
 
-        int argb = color.getValue();
-        Vector3f rgb = new Vector3f(
-                ((argb >> 16) & 0xFF) / 255f,
-                ((argb >> 8) & 0xFF) / 255f,
-                (argb & 0xFF) / 255f
-        );
+        int rgb = color.getValue() & 0x00FFFFFF;
         DustParticleEffect effect = new DustParticleEffect(rgb, particleSize.getValue());
 
         double x = target.getX();
