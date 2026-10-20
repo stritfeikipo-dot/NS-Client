@@ -41,7 +41,7 @@ public final class CombatEventHandler {
                                           net.minecraft.util.Hand hand, Entity target,
                                           net.minecraft.util.hit.EntityHitResult hitResult) {
         if (!(target instanceof LivingEntity living)) return ActionResult.PASS;
-        if (!world.isClient) return ActionResult.PASS;
+        if (!world.isClient()) return ActionResult.PASS;
 
         boolean crit = player.fallDistance > 0.0F && !player.isOnGround() && !player.isClimbing();
 
