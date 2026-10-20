@@ -40,7 +40,7 @@ public class HitParticlesModule extends Module {
             double vx = (Math.random() - 0.5) * speed.getValue();
             double vy = Math.random() * speed.getValue();
             double vz = (Math.random() - 0.5) * speed.getValue();
-            world.addParticle(effect, x + ox, y + oy, z + oz, vx, vy, vz);
+            world.addParticle(effect, true, false, x + ox, y + oy, z + oz, vx, vy, vz);
         }
     }
 }
