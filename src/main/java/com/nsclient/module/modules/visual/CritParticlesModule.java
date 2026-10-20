@@ -5,7 +5,7 @@ import com.nsclient.module.Module;
 import com.nsclient.module.ModuleCategory;
 import com.nsclient.util.NSColors;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.client.particle.ParticleManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.particle.DustParticleEffect;
 
@@ -22,8 +22,8 @@ public class CritParticlesModule extends Module {
 
     public void spawn(Entity target) {
         if (!isEnabled()) return;
-        ClientWorld world = MinecraftClient.getInstance().world;
-        if (world == null) return;
+        ParticleManager particleManager = MinecraftClient.getInstance().particleManager;
+        if (particleManager == null) return;
 
         int rgb = color.getValue() & 0x00FFFFFF;
         DustParticleEffect effect = new DustParticleEffect(rgb, particleSize.getValue());
@@ -40,7 +40,7 @@ public class CritParticlesModule extends Module {
             double vx = Math.cos(angle) * speed.getValue();
             double vy = Math.random() * speed.getValue() * 1.5;
             double vz = Math.sin(angle) * speed.getValue();
-            world.addParticle(effect, true, x + ox, y, z + oz, vx, vy, vz);
+            particleManager.addParticle(effect, x + ox, y, z + oz, vx, vy, vz);
         }
     }
 }
