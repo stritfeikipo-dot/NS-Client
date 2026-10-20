@@ -48,7 +48,7 @@ public class NSClient implements ClientModInitializer {
         var mc = net.minecraft.client.MinecraftClient.getInstance();
         if (mc.options != null && mc.options.hudHidden) return;
 
-        float tickDelta = tickCounter.getTickDelta(true);
+        float tickDelta = tickCounter.getTickProgress(true);
 
         for (HudModule module : ModuleManager.get().getHudModules()) {
             if (module.isEnabled()) {
