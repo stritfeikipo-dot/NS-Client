@@ -6,9 +6,13 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.util.Identifier;
 import org.lwjgl.glfw.GLFW;
 
 public final class KeybindHandler {
+
+    private static final KeyBinding.Category CATEGORY =
+            KeyBinding.Category.create(Identifier.of("nsclient", "general"));
 
     private static KeyBinding openGuiKey;
     private static KeyBinding openHudEditorKey;
@@ -21,14 +25,14 @@ public final class KeybindHandler {
                 "key.nsclient.open_gui",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_RIGHT_SHIFT,
-                "category.nsclient.general"
+                CATEGORY
         ));
 
         openHudEditorKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.nsclient.open_hud_editor",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_RIGHT_CONTROL,
-                "category.nsclient.general"
+                CATEGORY
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -58,8 +62,8 @@ public final class KeybindHandler {
     private static final boolean[] keyWasDown = new boolean[GLFW.GLFW_KEY_LAST + 1];
 
     private static boolean wasJustPressed(int code) {
-        long handle = net.minecraft.client.MinecraftClient.getInstance().getWindow().getHandle();
-        boolean down = InputUtil.isKeyPressed(handle, code);
+        var window = net.minecraft.client.MinecraftClient.getInstance().getWindow();
+        boolean down = InputUtil.isKeyPressed(window, code);
         boolean justPressed = down && !keyWasDown[code];
         keyWasDown[code] = down;
         return justPressed;
