@@ -1,7 +1,7 @@
 package com.nsclient.config;
 
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.nsclient.module.HudModule;
@@ -10,116 +10,101 @@ import com.nsclient.module.ModuleManager;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
-public final class ConfigManager {
+public class ConfigManager {
+    private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("nsclient");
+    private static final Path CONFIG_FILE = CONFIG_DIR.resolve("config.json");
+    private static final Path PROFILES_DIR = CONFIG_DIR.resolve("profiles");
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static Path configDir;
-    private static Path configFile;
-
-    private ConfigManager() {
+    public static void save(ModuleManager manager) {
+        writeToFile(manager, CONFIG_FILE);
     }
 
-    public static void init() {
-        configDir = FabricLoader.getInstance().getConfigDir().resolve("nsclient");
-        configFile = configDir.resolve("config.json");
+    public static void load(ModuleManager manager) {
+        readFromFile(manager, CONFIG_FILE);
+    }
+
+    public static void saveProfile(ModuleManager manager, String name) {
+        writeToFile(manager, profilePath(name));
+    }
+
+    public static void loadProfile(ModuleManager manager, String name) {
+        readFromFile(manager, profilePath(name));
+    }
+
+    public static boolean deleteProfile(String name) {
         try {
-            Files.createDirectories(configDir);
+            return Files.deleteIfExists(profilePath(name));
         } catch (IOException e) {
-            System.err.println("[NS Client] Failed to create config directory: " + e.getMessage());
+            System.err.println("[NS Client] Failed to delete profile: " + e.getMessage());
+            return false;
         }
     }
 
-    public static void load() {
-        if (configFile == null || !Files.exists(configFile)) return;
-
-        try (Reader reader = Files.newBufferedReader(configFile, StandardCharsets.UTF_8)) {
-            JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-            JsonObject modulesObj = root.has("modules") ? root.getAsJsonObject("modules") : new JsonObject();
-
-            for (Module module : ModuleManager.get().getModules()) {
-                if (!modulesObj.has(module.getName())) continue;
-                JsonObject mObj = modulesObj.getAsJsonObject(module.getName());
-
-                if (mObj.has("enabled")) module.setEnabled(mObj.get("enabled").getAsBoolean());
-                if (mObj.has("keyCode")) module.setKeyCode(mObj.get("keyCode").getAsInt());
-
-                if (mObj.has("settings")) {
-                    JsonObject settingsObj = mObj.getAsJsonObject("settings");
-                    for (Setting<?> setting : module.getSettings()) {
-                        if (!settingsObj.has(setting.getName())) continue;
-                        applySettingValue(setting, settingsObj);
-                    }
-                }
-
-                if (module instanceof HudModule hud) {
-                    if (mObj.has("x") && mObj.has("y")) {
-                        hud.setPosition(mObj.get("x").getAsFloat(), mObj.get("y").getAsFloat());
-                    }
-                    if (mObj.has("scale")) {
-                        hud.setScale(mObj.get("scale").getAsFloat());
-                    }
-                }
+    public static List<String> listProfiles() {
+        List<String> names = new ArrayList<>();
+        if (!Files.isDirectory(PROFILES_DIR)) return names;
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(PROFILES_DIR, "*.json")) {
+            for (Path p : stream) {
+                String fileName = p.getFileName().toString();
+                names.add(fileName.substring(0, fileName.length() - 5));
             }
-        } catch (Exception e) {
-            System.err.println("[NS Client] Failed to load config, using defaults: " + e.getMessage());
+        } catch (IOException e) {
+            System.err.println("[NS Client] Failed to list profiles: " + e.getMessage());
         }
+        names.sort(Comparator.naturalOrder());
+        return names;
     }
 
-    @SuppressWarnings("unchecked")
-    private static void applySettingValue(Setting<?> setting, JsonObject settingsObj) {
-        switch (setting.getType()) {
-            case BOOLEAN -> ((Setting<Boolean>) setting).setValue(settingsObj.get(setting.getName()).getAsBoolean());
-            case SLIDER_FLOAT -> ((Setting<Float>) setting).setValue(settingsObj.get(setting.getName()).getAsFloat());
-            case SLIDER_INT -> ((Setting<Integer>) setting).setValue(settingsObj.get(setting.getName()).getAsInt());
-            case COLOR -> ((Setting<Integer>) setting).setValue(settingsObj.get(setting.getName()).getAsInt());
-            case MODE -> ((Setting<String>) setting).setValue(settingsObj.get(setting.getName()).getAsString());
-        }
+    private static Path profilePath(String name) {
+        String safe = name.replaceAll("[^a-zA-Z0-9_\\-]", "_");
+        return PROFILES_DIR.resolve(safe + ".json");
     }
 
-    public static void save() {
-        if (configFile == null) return;
-
-        JsonObject root = new JsonObject();
-        JsonObject modulesObj = new JsonObject();
-
-        for (Module module : ModuleManager.get().getModules()) {
-            JsonObject mObj = new JsonObject();
-            mObj.addProperty("enabled", module.isEnabled());
-            mObj.addProperty("keyCode", module.getKeyCode());
-
-            JsonObject settingsObj = new JsonObject();
-            for (Setting<?> setting : module.getSettings()) {
-                switch (setting.getType()) {
-                    case BOOLEAN -> settingsObj.addProperty(setting.getName(), (Boolean) setting.getValue());
-                    case SLIDER_FLOAT -> settingsObj.addProperty(setting.getName(), (Float) setting.getValue());
-                    case SLIDER_INT -> settingsObj.addProperty(setting.getName(), (Integer) setting.getValue());
-                    case COLOR -> settingsObj.addProperty(setting.getName(), (Integer) setting.getValue());
-                    case MODE -> settingsObj.addProperty(setting.getName(), (String) setting.getValue());
-                }
+    private static void writeToFile(ModuleManager manager, Path file) {
+        try {
+            Files.createDirectories(file.getParent());
+            JsonObject root = new JsonObject();
+            JsonObject modulesObj = new JsonObject();
+            for (Module m : manager.getModules()) {
+                JsonObject obj = new JsonObject();
+                m.writeConfig(obj);
+                modulesObj.add(m.getName(), obj);
             }
-            mObj.add("settings", settingsObj);
+            root.add("modules", modulesObj);
+            root.add("hud_groups", manager.getGroupManager().toJson());
 
-            if (module instanceof HudModule hud) {
-                mObj.addProperty("x", hud.getX());
-                mObj.addProperty("y", hud.getY());
-                mObj.addProperty("scale", hud.getScale());
+            try (Writer writer = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
+                new GsonBuilder().setPrettyPrinting().create().toJson(root, writer);
             }
-
-            modulesObj.add(module.getName(), mObj);
-        }
-
-        root.add("modules", modulesObj);
-
-        try (Writer writer = Files.newBufferedWriter(configFile, StandardCharsets.UTF_8)) {
-            GSON.toJson(root, writer);
         } catch (IOException e) {
             System.err.println("[NS Client] Failed to save config: " + e.getMessage());
         }
     }
-                                                         }
+
+    private static void readFromFile(ModuleManager manager, Path file) {
+        if (!Files.exists(file)) return;
+        try {
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            JsonObject root = JsonParser.parseString(content).getAsJsonObject();
+            if (!root.has("modules")) return;
+            JsonObject modulesObj = root.getAsJsonObject("modules");
+            for (Module m : manager.getModules()) {
+                if (modulesObj.has(m.getName())) {
+                    m.readConfig(modulesObj.getAsJsonObject(m.getName()));
+                }
+                if (m instanceof HudModule hm) hm.setGrouped(false);
+            }
+
+            JsonArray groupsArr = root.has("hud_groups") ? root.getAsJsonArray("hud_groups") : new JsonArray();
+            manager.getGroupManager().fromJson(groupsArr, manager);
+        } catch (IOException e) {
+            System.err.println("[NS Client] Fa
