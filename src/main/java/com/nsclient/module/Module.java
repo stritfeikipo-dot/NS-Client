@@ -1,95 +1,67 @@
 package com.nsclient.module;
 
-import com.nsclient.config.Setting;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
+import com.google.gson.JsonObject;
+import com.nsclient.module.setting.Setting;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Base class for every toggleable feature (HUD elements, combat visuals,
- * particle effects, ...). A Module is purely client-side and purely visual:
- * it never sends extra packets or alters combat outcomes.
- */
 public abstract class Module {
 
-    protected final MinecraftClient mc = MinecraftClient.getInstance();
+    public enum Area { PLAYER, WORLD }
 
     private final String name;
+    private final String displayName;
     private final String description;
-    private final ModuleCategory category;
+    private final Category category;
     private boolean enabled;
-    private int keyCode = InputUtil.UNKNOWN_KEY.getCode(); // -1 = unbound
-
+    private int keyCode = -1;
+    private Area area = Area.PLAYER;
     private final List<Setting<?>> settings = new ArrayList<>();
 
-    protected Module(String name, String description, ModuleCategory category, boolean enabledByDefault) {
+    protected Module(String name, String displayName, String description, Category category, boolean enabledByDefault) {
         this.name = name;
+        this.displayName = displayName;
         this.description = description;
         this.category = category;
         this.enabled = enabledByDefault;
     }
 
-    /** Called once after the module is registered, before config is loaded. */
-    public void init() {
+    public String getName() { return name; }
+    public String getDisplayName() { return displayName; }
+    public String getDescription() { return description; }
+    public Category getCategory() { return category; }
+    public Area getArea() { return area; }
+    protected void setArea(Area area) { this.area = area; }
+    public boolean isEnabled() { return enabled; }
+    public int getKeyCode() { return keyCode; }
+    public void setKeyCode(int keyCode) { this.keyCode = keyCode; }
+    public List<Setting<?>> getSettings() { return settings; }
+
+    protected <T, S extends Setting<T>> S register(S setting) {
+        settings.add(setting);
+        return setting;
     }
 
-    /** Called when the module is turned on. */
-    public void onEnable() {
-    }
-
-    /** Called when the module is turned off. */
-    public void onDisable() {
-    }
-
-    public final void toggle() {
-        setEnabled(!enabled);
-    }
-
-    public final void setEnabled(boolean enabled) {
+    public void setEnabled(boolean enabled) {
         if (this.enabled == enabled) return;
         this.enabled = enabled;
         if (enabled) onEnable(); else onDisable();
     }
 
-    public final boolean isEnabled() {
-        return enabled;
-    }
+    public void toggle() { setEnabled(!enabled); }
 
-    public String getName() {
-        return name;
-    }
+    protected void onEnable() {}
+    protected void onDisable() {}
 
-    public String getDescription() {
-        return description;
-    }
-
-    public ModuleCategory getCategory() {
-        return category;
-    }
-
-    public int getKeyCode() {
-        return keyCode;
-    }
-
-    public void setKeyCode(int keyCode) {
-        this.keyCode = keyCode;
-    }
-
-    protected final <T> Setting<T> register(Setting<T> setting) {
-        settings.add(setting);
-        return setting;
-    }
-
-    public List<Setting<?>> getSettings() {
-        return settings;
-    }
-
-    public Setting<?> getSetting(String name) {
-        for (Setting<?> s : settings) {
-            if (s.getName().equalsIgnoreCase(name)) return s;
+    public void writeConfig(JsonObject obj) {
+        obj.addProperty("enabled", enabled);
+        obj.addProperty("keyCode", keyCode);
+        JsonObject settingsObj = new JsonObject();
+        for (Setting<?> setting : settings) {
+            settingsObj.add(setting.getName(), setting.toJson());
         }
-        return null;
+        obj.add("settings", settingsObj);
     }
-}
+
+    public void readCo
